@@ -4,6 +4,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { AppError, Errors, fail } from "./lib/response.ts";
 import { authRoutes } from "./auth/auth.routes.ts";
+import { outletRoutes, platformRoutes } from "./outlets/outlet.routes.ts";
 
 export const app = new Hono();
 
@@ -12,6 +13,8 @@ app.use("*", cors()); // dev: izinkan CMS (localhost) memanggil API.
 app.get("/health", (c) => c.json({ data: { status: "ok" }, error: null }));
 
 app.route("/auth", authRoutes);
+app.route("/outlets", outletRoutes);
+app.route("/platforms", platformRoutes);
 
 // Error handler global: AppError → response sentinel; sisanya → 500 generik.
 app.onError((err, c) => {

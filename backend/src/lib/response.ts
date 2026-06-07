@@ -35,6 +35,8 @@ export const Errors = {
   forbidden: () => new AppError("FORBIDDEN", "Akses ditolak.", 403),
   notFound: (what = "Resource") =>
     new AppError("NOT_FOUND", `${what} tidak ditemukan.`, 404),
+  conflict: (code: string, message: string) =>
+    new AppError(code, message, 409),
   internal: () =>
     new AppError("INTERNAL", "Terjadi kesalahan internal.", 500),
 };

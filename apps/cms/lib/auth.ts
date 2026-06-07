@@ -1,5 +1,5 @@
 // Penyimpanan sesi CMS di sisi klien (MVP: localStorage). Token JWT dari backend.
-import { apiPost } from "./api";
+import { api } from "./api";
 
 const TOKEN_KEY = "qms.cms.token";
 const USER_KEY = "qms.cms.user";
@@ -18,7 +18,7 @@ export async function login(
   email: string,
   password: string,
 ): Promise<SessionUser> {
-  const result = await apiPost<LoginResult>("/auth/login", { email, password });
+  const result = await api.post<LoginResult>("/auth/login", { email, password });
   localStorage.setItem(TOKEN_KEY, result.token);
   localStorage.setItem(USER_KEY, JSON.stringify(result.user));
   return result.user;

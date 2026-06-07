@@ -6,9 +6,11 @@ export type ApiError = { code: string; message: string };
 
 export class ApiClientError extends Error {
   code: string;
-  constructor(err: ApiError) {
+  status: number;
+  constructor(err: ApiError, status: number) {
     super(err.message);
     this.code = err.code;
+    this.status = status;
   }
 }
 
@@ -16,21 +18,32 @@ type ApiEnvelope<T> =
   | { data: T; error: null }
   | { data: null; error: ApiError };
 
-export async function apiPost<T>(
+async function request<T>(
+  method: string,
   path: string,
-  body: unknown,
-  token?: string,
+  opts: { body?: unknown; token?: string | null } = {},
 ): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
-    method: "POST",
+    method,
     headers: {
-      "content-type": "application/json",
-      ...(token ? { authorization: `Bearer ${token}` } : {}),
+      ...(opts.body !== undefined ? { "content-type": "application/json" } : {}),
+      ...(opts.token ? { authorization: `Bearer ${opts.token}` } : {}),
     },
-    body: JSON.stringify(body),
+    body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
   });
 
   const json = (await res.json()) as ApiEnvelope<T>;
-  if (json.error) throw new ApiClientError(json.error);
+  if (json.error) throw new ApiClientError(json.error, res.status);
   return json.data as T;
 }
+
+export const api = {
+  get: <T>(path: string, token?: string | null) =>
+    request<T>("GET", path, { token }),
+  post: <T>(path: string, body: unknown, token?: string | null) =>
+    request<T>("POST", path, { body, token }),
+  patch: <T>(path: string, body: unknown, token?: string | null) =>
+    request<T>("PATCH", path, { body, token }),
+  del: <T>(path: string, token?: string | null) =>
+    request<T>("DELETE", path, { token }),
+};
