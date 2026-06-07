@@ -1,0 +1,3 @@
+[test]
+# Set env default sebelum modul (env.ts) dievaluasi saat test.
+preload = ["./src/test-setup.ts"]

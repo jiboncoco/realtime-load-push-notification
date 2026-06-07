@@ -1,0 +1,24 @@
+# Dev lokal: cukup Postgres. Backend & Next.js dijalankan via `bun run dev`
+# agar iterasi cepat. Caddy + containerisasi app menyusul di tahap deploy.
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: qms-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: qms
+      POSTGRES_PASSWORD: qms
+      POSTGRES_DB: qms
+    ports:
+      # Host 55432 → container 5432 (5432/5433 sudah dipakai Postgres lokal lain).
+      - "55432:5432"
+    volumes:
+      - qms_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U qms -d qms"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  qms_pgdata:

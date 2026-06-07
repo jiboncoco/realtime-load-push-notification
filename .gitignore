@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+.bun/
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# Next.js
+.next/
+out/
+next-env.d.ts
+
+# Build / cache
+dist/
+*.tsbuildinfo
+
+# OS
+.DS_Store
+
+# Logs
+*.log

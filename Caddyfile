@@ -1,0 +1,15 @@
+# Reverse proxy + TLS otomatis (dipakai penuh saat deploy ke Lightsail).
+# Dev lokal: jalankan app via `bun run dev` langsung; Caddy opsional.
+#
+# Contoh produksi (sesuaikan domain):
+#
+# qms.example.com {
+#     # API + WebSocket
+#     handle /auth/* { reverse_proxy backend:3001 }
+#     handle /outlets/* { reverse_proxy backend:3001 }
+#     handle /tickets/* { reverse_proxy backend:3001 }
+#     handle /ws { reverse_proxy backend:3001 }
+#
+#     # CMS (Next.js) sebagai default
+#     handle { reverse_proxy cms:3000 }
+# }
