@@ -2,6 +2,7 @@
 // WS masih stub struktur; pub/sub realtime dikerjakan di modul Monitor+TV.
 import { app } from "./app.ts";
 import { env } from "./lib/env.ts";
+import { setPublisher } from "./ws/broadcast.ts";
 
 const server = Bun.serve({
   port: env.port,
@@ -26,5 +27,8 @@ const server = Bun.serve({
     },
   },
 });
+
+// Hubungkan broadcast → Bun WebSocket publish (no-op sampai ada subscriber).
+setPublisher((topic, data) => server.publish(topic, JSON.stringify(data)));
 
 console.log(`API jalan di http://localhost:${server.port}`);

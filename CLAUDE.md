@@ -11,9 +11,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ---
 
+## Working Agreement — WAJIB
+
+1. Di AWAL setiap sesi, baca `docs/PROGRESS.md` lebih dulu sebelum
+   mengerjakan apa pun. File itu adalah sumber kebenaran: task terakhir,
+   task berikutnya, keputusan teknis, dan blocker.
+2. Setelah menyelesaikan SETIAP task atau sub-task bermakna, update
+   `docs/PROGRESS.md`:
+   - Tambah entri baru di "Task Log" (append-only, JANGAN hapus entri lama).
+   - Perbarui blok "Current State" di paling atas.
+3. Saat saya mengetik `/handoff`, tutup sesi dengan menulis ringkasan
+   serah-terima untuk sesi Claude berikutnya.
+
 ## 0. Repository State & Tooling (CURRENT)
 
-- **Status**: fondasi monorepo + modul **Auth** sudah jalan. Sudah ada: `backend/` (Bun+Hono), `apps/cms/` (Next.js), `docker-compose.yml` (Postgres), `Caddyfile`, `README.md`. Modul berikutnya per **Urutan implementasi** (§9): Outlet/Platform → User/Operator → Queue Engine → Monitor+TV → Notifications.
+- **Status**: 4 modul §9 selesai — **Auth**, **Outlet/Platform**, **User/Operator**, **Queue Booking & Auto-assign**. Ada: `backend/` (Bun+Hono), `apps/cms/` (admin, :3000), `apps/customer/` (booking, :3002), `docker-compose.yml` (Postgres :55432), `Caddyfile`, `README.md`. Migrasi: `001_init.sql`, `002_tickets_booking_day.sql`. Modul berikutnya (§9): **Queue Call & Skip** → Monitor+TV → Notifications. Catat progress di `docs/PROGRESS.MD` (lihat Working Agreement).
+- **Booking publik**: `POST /outlets/:id/tickets` & `GET /tickets/:id` di `tickets/` TANPA auth — route admin di `outletRoutes` pakai middleware **per-route** (bukan `use("*")`) agar tak menelan route booking. Penomoran atomik: `pg_advisory_xact_lock` per-outlet + `UNIQUE(platform_id,booking_day,number)`; `booking_day` = WIB via `ticket.label.ts:wibDay`. Realtime: panggil `broadcast(topic,data)` dari `ws/broadcast.ts` (no-op sampai modul Monitor+TV mengaktifkan `/ws`).
 - **Mulai modul baru**: tunjukkan data model + endpoint dulu (§2) sebelum menulis kode. Skema DB lengkap (§3 TDD) sudah ada di `backend/src/db/migrations/001_init.sql` — modul berikut umumnya tinggal nambah kode, bukan tabel.
 
 **Struktur & layering**

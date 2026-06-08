@@ -43,14 +43,17 @@ const updatePlatformSchema = z
   });
 
 // Endpoint berbasis outlet: /outlets...
+// Middleware admin dipasang PER-ROUTE (bukan use("*")) supaya tidak menelan
+// route publik POST /outlets/:id/tickets (booking customer) yang berbagi prefix.
+const admin = [requireAuth, requireRole("admin")] as const;
+
 export const outletRoutes = new Hono<AuthEnv>();
-outletRoutes.use("*", requireAuth, requireRole("admin"));
-outletRoutes.get("/", h.listOutlets);
-outletRoutes.post("/", jsonBody(createOutletSchema), h.createOutlet);
-outletRoutes.get("/:id", h.getOutlet);
-outletRoutes.patch("/:id", jsonBody(updateOutletSchema), h.updateOutlet);
-outletRoutes.delete("/:id", h.deleteOutlet);
-outletRoutes.post("/:id/platforms", jsonBody(platformSchema), h.addPlatform);
+outletRoutes.get("/", ...admin, h.listOutlets);
+outletRoutes.post("/", ...admin, jsonBody(createOutletSchema), h.createOutlet);
+outletRoutes.get("/:id", ...admin, h.getOutlet);
+outletRoutes.patch("/:id", ...admin, jsonBody(updateOutletSchema), h.updateOutlet);
+outletRoutes.delete("/:id", ...admin, h.deleteOutlet);
+outletRoutes.post("/:id/platforms", ...admin, jsonBody(platformSchema), h.addPlatform);
 
 // Endpoint platform langsung: /platforms/:id
 export const platformRoutes = new Hono<AuthEnv>();
