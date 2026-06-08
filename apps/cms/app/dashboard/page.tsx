@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-// Dashboard sementara mengarah ke manajemen outlet (modul aktif).
+// Dashboard mengarah ke panel antrian (bisa diakses admin & operator).
 export default function DashboardPage() {
-  redirect("/outlets");
+  redirect("/queue");
 }

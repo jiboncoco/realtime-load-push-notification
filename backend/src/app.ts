@@ -7,6 +7,7 @@ import { authRoutes } from "./auth/auth.routes.ts";
 import { outletRoutes, platformRoutes } from "./outlets/outlet.routes.ts";
 import { userRoutes } from "./users/user.routes.ts";
 import { ticketRoutes } from "./tickets/ticket.routes.ts";
+import { ticketOpsRoutes } from "./tickets/ticketops.routes.ts";
 
 export const app = new Hono();
 
@@ -20,6 +21,8 @@ app.route("/platforms", platformRoutes);
 app.route("/users", userRoutes);
 // Customer-facing (publik): POST /outlets/:id/tickets, GET /tickets/:id
 app.route("/", ticketRoutes);
+// Operator/admin (terproteksi): call/serve/complete/skip, queue, /me/outlets
+app.route("/", ticketOpsRoutes);
 
 // Error handler global: AppError → response sentinel; sisanya → 500 generik.
 app.onError((err, c) => {

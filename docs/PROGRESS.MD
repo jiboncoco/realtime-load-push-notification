@@ -2,15 +2,15 @@
 
 ## Current State
 - Last updated : 2026-06-08
-- Branch aktif : feat/user-operator (perubahan Queue belum di-commit; rencana commit ke feat/queue-booking)
-- Sudah jadi   : Auth CMS, Outlet & Platform, User & Operator, Queue Booking & Auto-assign, Customer app (booking+status), DB schema
-- Sedang jalan : — (4 dari 7 modul §9 selesai)
-- Task BERIKUT : T-002 — Queue Engine: Call & Skip (state machine WAITING→CALLED→SERVING→COMPLETED / SKIPPED)
+- Branch aktif : feat/queue-booking (perubahan Call&Skip belum di-commit; rencana commit ke feat/queue-callskip)
+- Sudah jadi   : Auth CMS, Outlet & Platform, User & Operator, Queue Booking & Auto-assign, Queue Call & Skip (+panel operator), Customer app, DB schema
+- Sedang jalan : — (5 dari 7 modul §9 selesai)
+- Task BERIKUT : T-003 — Monitor + TV display (aktifkan WebSocket pub/sub penuh + layar TV per outlet)
 - Keputusan tertunda (perlu kamu putuskan):
     1. Strategi merge: semua kerja masih di feature branch terpisah, main masih kosong.
        Mau merge dulu ke main atau lanjut per-branch?
-    2. Realtime: broadcast() sudah dipanggil saat booking tapi /ws masih stub
-       (belum ada subscriber). Aktifkan WS penuh di modul Monitor+TV.
+    2. Realtime: broadcast() sudah dipanggil saat booking & call/skip tapi /ws masih stub
+       (belum ada subscriber). Aktifkan WS penuh + auth koneksi di T-003 (Monitor+TV).
 
 ## Baseline — kondisi awal saat tracking dimulai (2026-06-08)
 <!-- ditulis sekali, tidak diubah lagi -->
@@ -38,6 +38,23 @@ Folder placeholder (.gitkeep, belum diisi): platforms/  tickets/  push/  ws/
 
 ## Task Log
 <!-- append-only, entri terbaru di ATAS -->
+
+### [2026-06-08] T-002 — Queue Engine: Call & Skip (Backend + panel operator CMS)
+- Tujuan     : operator/admin jalankan state machine antrian (call/serve/complete/skip) + lihat antrian aktif
+- Dikerjakan : ticket.actions.ts (nextState PURE); ticketops.{repo,service,handler,routes,test}.ts;
+               endpoint POST /tickets/:id/{call,serve,complete,skip}, GET /outlets/:id/queue, GET /me/outlets (terproteksi);
+               applyAction TX + optimistic guard (status+call_count) + audit ticket_events + broadcast outlet:/ticket:;
+               CMS: nav per-role (operator hanya 'Antrian'), /queue (pilih outlet), /queue/[outletId] panel kolom-per-platform
+               dengan tombol Panggil/Panggil ulang/Layani/Selesai/Skip (skip disabled <3x), polling 3s
+- File berubah : backend/src/tickets/ticket.actions.ts, ticketops.* (5 file), backend/src/app.ts;
+               apps/cms/lib/queue.ts, components/RequireAuth.tsx, app/dashboard/page.tsx, app/queue/* (2 file)
+- Keputusan  : otorisasi operator(assigned)+admin(client penuh), scoping di service (lintas-tenant→404, operator tak assign→403);
+               skip guard call_count≥3; transisi tak valid→409; requireAuth PER-ROUTE (router di-mount "/" agar tak menelan booking publik)
+- Verifikasi : bun test 35 pass; tsc bersih; lifecycle call→serve→complete OK; skip<3→SKIP_NOT_ALLOWED, skip@3→SKIPPED;
+               complete ulang→INVALID_TRANSITION; op-off→403, no-token→401; queue snapshot akurat; /me/outlets per-role benar;
+               ticket_events tercatat (call:4/serve:1/complete:1/skip:1); booking publik tetap 201; CMS build + pages 200. DB bersih.
+- Status     : ✅ done (belum di-commit)
+- Next        : T-003 — Monitor + TV display (WebSocket realtime penuh)
 
 ### [2026-06-08] T-001 — Queue Engine: Booking & Auto-assign (Backend + Customer app)
 - Tujuan     : customer ambil antrian → auto-assign platform paling kosong + nomor unik/hari, atomic & anti race-condition
