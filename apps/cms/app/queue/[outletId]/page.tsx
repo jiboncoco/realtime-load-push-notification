@@ -10,6 +10,7 @@ import {
   type TicketAction,
 } from "@/lib/queue";
 import { ApiClientError } from "@/lib/api";
+import { useRealtime } from "@/lib/useRealtime";
 
 const SKIP_MIN_CALLS = 3;
 
@@ -33,8 +34,11 @@ function Panel({ outletId }: { outletId: string }) {
   const { data, isLoading, error } = useQuery({
     queryKey,
     queryFn: () => queueApi.snapshot(outletId),
-    refetchInterval: 3000, // polling; realtime WS menyusul di modul Monitor+TV
+    refetchInterval: 12000, // fallback; update utama via WebSocket
   });
+
+  // Realtime: refetch saat ada perubahan tiket di outlet ini.
+  useRealtime(`outlet:${outletId}`, queryKey);
 
   const act = useMutation({
     mutationFn: ({ id, action }: { id: string; action: TicketAction }) =>

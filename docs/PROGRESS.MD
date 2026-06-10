@@ -1,16 +1,15 @@
 # Progress Report
 
 ## Current State
-- Last updated : 2026-06-08
-- Branch aktif : feat/queue-booking (perubahan Call&Skip belum di-commit; rencana commit ke feat/queue-callskip)
-- Sudah jadi   : Auth CMS, Outlet & Platform, User & Operator, Queue Booking & Auto-assign, Queue Call & Skip (+panel operator), Customer app, DB schema
-- Sedang jalan : — (5 dari 7 modul §9 selesai)
-- Task BERIKUT : T-003 — Monitor + TV display (aktifkan WebSocket pub/sub penuh + layar TV per outlet)
+- Last updated : 2026-06-10
+- Branch aktif : main (T-003 Monitor+TV selesai tapi BELUM di-commit; semua modul sebelumnya sudah ter-merge ke main)
+- Sudah jadi   : Auth, Outlet & Platform, User & Operator, Queue Booking, Queue Call & Skip, Monitor+TV (WS realtime + TV app), Customer app, DB schema
+- Sedang jalan : — (6 dari 7 modul §9 selesai)
+- Task BERIKUT : T-004 — Notifications (Web Push: VAPID + Service Worker; reminder "sisa 3" CUS-5 & "ready" CUS-6; PWA customer)
 - Keputusan tertunda (perlu kamu putuskan):
-    1. Strategi merge: semua kerja masih di feature branch terpisah, main masih kosong.
-       Mau merge dulu ke main atau lanjut per-branch?
-    2. Realtime: broadcast() sudah dipanggil saat booking & call/skip tapi /ws masih stub
-       (belum ada subscriber). Aktifkan WS penuh + auth koneksi di T-003 (Monitor+TV).
+    1. WS auth: subscribe topic display dibuat PUBLIK (data TV memang publik). Bila butuh
+       privasi lebih, perketat ke JWT-per-koneksi nanti.
+    2. push: butuh generate VAPID keypair + caveat iOS (PWA harus di-install).
 
 ## Baseline — kondisi awal saat tracking dimulai (2026-06-08)
 <!-- ditulis sekali, tidak diubah lagi -->
@@ -38,6 +37,23 @@ Folder placeholder (.gitkeep, belum diisi): platforms/  tickets/  push/  ws/
 
 ## Task Log
 <!-- append-only, entri terbaru di ATAS -->
+
+### [2026-06-10] T-003 — Monitor + TV display (WebSocket realtime penuh + app TV)
+- Tujuan     : aktifkan /ws pub/sub (yang tadinya stub), layar TV publik per outlet, ganti polling jadi realtime
+- Dikerjakan : backend ws/handlers.ts (subscribe/unsubscribe topic outlet:/ticket:, validasi format) + wire ke Bun.serve (index.ts);
+               GET /outlets/:id/display (publik) = "sedang dipanggil" per platform + waiting (display.service.ts);
+               app baru apps/tv (:3003) layar besar/kontras tinggi, subscribe outlet:{id};
+               hook useRealtime (cms/customer/tv): WS event → invalidate query, auto-reconnect, polling jadi fallback;
+               CMS panel & Customer status pindah ke WS (interval fallback 12s/15s); customer subscribe outlet:{outlet_id} agar "sisa di depan" ikut update
+- File berubah : backend/src/ws/handlers.ts, backend/src/index.ts, backend/src/tickets/display.service.ts,
+               ticket.handler.ts, ticket.routes.ts; apps/tv/* (baru); apps/{cms,customer}/lib/useRealtime.ts;
+               apps/cms/app/queue/[outletId]/page.tsx, apps/customer/app/t/[ticketId]/page.tsx
+- Keputusan  : subscribe topic display PUBLIK (TV terpasang di tempat umum; ticket id = UUID); mutasi tetap butuh auth;
+               event WS = sinyal "ada perubahan" → client refetch snapshot (bukan rekonstruksi state dari delta) → sederhana & konsisten
+- Verifikasi : backend tsc bersih, bun test 35 pass; ws client: booking→event outlet, call→event outlet+ticket;
+               display reflect CALLED; tv/cms/customer build sukses; semua app serve 200; TV page 200 utk outlet nyata. DB bersih.
+- Status     : ✅ done (belum di-commit)
+- Next        : T-004 — Notifications (Web Push)
 
 ### [2026-06-08] T-002 — Queue Engine: Call & Skip (Backend + panel operator CMS)
 - Tujuan     : operator/admin jalankan state machine antrian (call/serve/complete/skip) + lihat antrian aktif

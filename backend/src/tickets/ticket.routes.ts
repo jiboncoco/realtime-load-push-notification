@@ -3,7 +3,7 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import { jsonBody } from "../lib/validate.ts";
-import { bookTicket, getTicket } from "./ticket.handler.ts";
+import { bookTicket, getDisplay, getTicket } from "./ticket.handler.ts";
 
 const bookSchema = z.object({
   device_token: z.string().trim().min(1).max(200).nullish(),
@@ -16,3 +16,6 @@ ticketRoutes.post("/outlets/:id/tickets", jsonBody(bookSchema), bookTicket);
 
 // Status tiket + sisa di depan.
 ticketRoutes.get("/tickets/:id", getTicket);
+
+// Data layar TV per outlet (publik, read-only).
+ticketRoutes.get("/outlets/:id/display", getDisplay);

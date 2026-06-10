@@ -3,6 +3,7 @@
 import { use } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ticketApi, type TicketStatus } from "@/lib/ticket";
+import { useRealtime } from "@/lib/useRealtime";
 
 const STATUS_LABEL: Record<TicketStatus, string> = {
   WAITING: "Menunggu",
@@ -24,8 +25,12 @@ export default function StatusPage({
   const { data, isLoading, error } = useQuery({
     queryKey: ["ticket", ticketId],
     queryFn: () => ticketApi.status(ticketId),
-    refetchInterval: 5000,
+    refetchInterval: 15000, // fallback; update utama via WebSocket
   });
+
+  // Subscribe ke outlet (bukan hanya tiket) agar "sisa di depan" ikut update
+  // saat antrian lain dipanggil/diselesaikan.
+  useRealtime(data ? `outlet:${data.outlet_id}` : null, ["ticket", ticketId]);
 
   if (isLoading)
     return <Centered>Memuat…</Centered>;
