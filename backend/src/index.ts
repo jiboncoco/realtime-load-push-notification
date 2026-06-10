@@ -4,6 +4,9 @@ import { app } from "./app.ts";
 import { env } from "./lib/env.ts";
 import { setPublisher } from "./ws/broadcast.ts";
 import { websocket } from "./ws/handlers.ts";
+import { setPushHandlers } from "./push/push.notify.ts";
+import { pushService } from "./push/push.service.ts";
+import { pushEnabled } from "./push/push.sender.ts";
 
 const server = Bun.serve({
   port: env.port,
@@ -21,4 +24,18 @@ const server = Bun.serve({
 // Hubungkan broadcast → Bun WebSocket publish (topic pub/sub).
 setPublisher((topic, data) => server.publish(topic, JSON.stringify(data)));
 
+// Pasang implementasi notifikasi push (fire-and-forget; gagal push tak boleh
+// menggagalkan aksi operator → semua error ditelan + dicatat).
+setPushHandlers({
+  ticketCalled: (t) =>
+    void pushService
+      .notifyReady(t)
+      .catch((e) => console.error("notifyReady gagal:", e)),
+  queueAdvanced: (platformId) =>
+    void pushService
+      .notifyRemindThree(platformId)
+      .catch((e) => console.error("notifyRemindThree gagal:", e)),
+});
+
 console.log(`API jalan di http://localhost:${server.port}`);
+console.log(`Web Push: ${pushEnabled ? "aktif" : "nonaktif (VAPID kosong)"}`);

@@ -4,6 +4,7 @@ import { use } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ticketApi, type TicketStatus } from "@/lib/ticket";
 import { useRealtime } from "@/lib/useRealtime";
+import { PushButton } from "./PushButton";
 
 const STATUS_LABEL: Record<TicketStatus, string> = {
   WAITING: "Menunggu",
@@ -67,6 +68,10 @@ export default function StatusPage({
           <p className="rounded-2xl bg-accent/10 px-4 py-3 font-medium text-accent">
             Giliran Anda — menuju {data.platform.name}.
           </p>
+        )}
+
+        {(data.status === "WAITING" || data.status === "CALLED") && (
+          <PushButton ticketId={ticketId} />
         )}
       </div>
     </main>

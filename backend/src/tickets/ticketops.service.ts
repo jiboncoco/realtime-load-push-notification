@@ -4,6 +4,7 @@
 import { Errors } from "../lib/response.ts";
 import type { SessionClaims } from "../lib/jwt.ts";
 import { broadcast } from "../ws/broadcast.ts";
+import { onTicketCalled, onQueueAdvanced } from "../push/push.notify.ts";
 import { nextState, type TicketAction } from "./ticket.actions.ts";
 import {
   ticketOpsRepo,
@@ -72,6 +73,20 @@ export function createTicketOpsService(repo: TicketOpsRepo) {
       };
       broadcast(`outlet:${updated.outlet_id}`, payload);
       broadcast(`ticket:${updated.id}`, payload);
+
+      // Web Push (hook no-op bila VAPID kosong / di unit test):
+      // - "ready" saat tiket dipanggil;
+      // - reminder "sisa 3" saat tiket keluar dari WAITING (call/skip) → antrian maju.
+      if (action === "call") {
+        onTicketCalled({
+          id: updated.id,
+          label: updated.label,
+          platformName: updated.platform.name,
+        });
+      }
+      if (current.status === "WAITING" && updated.status !== "WAITING") {
+        onQueueAdvanced(updated.platform_id);
+      }
 
       return updated;
     },

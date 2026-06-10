@@ -2,14 +2,17 @@
 
 ## Current State
 - Last updated : 2026-06-10
-- Branch aktif : main (T-003 Monitor+TV selesai tapi BELUM di-commit; semua modul sebelumnya sudah ter-merge ke main)
-- Sudah jadi   : Auth, Outlet & Platform, User & Operator, Queue Booking, Queue Call & Skip, Monitor+TV (WS realtime + TV app), Customer app, DB schema
-- Sedang jalan : — (6 dari 7 modul §9 selesai)
-- Task BERIKUT : T-004 — Notifications (Web Push: VAPID + Service Worker; reminder "sisa 3" CUS-5 & "ready" CUS-6; PWA customer)
+- Branch aktif : main (T-003 Monitor+TV ter-commit e753f01; T-004 Notifications selesai, siap commit)
+- Sudah jadi   : Auth, Outlet & Platform, User & Operator, Queue Booking, Queue Call & Skip, Monitor+TV (WS realtime + TV app), Notifications (Web Push), Customer app/PWA, DB schema
+- Sedang jalan : — (7 dari 7 modul §9 SELESAI — MVP Phase 1 fitur lengkap)
+- Task BERIKUT : — (semua modul §9 selesai). Kandidat berikutnya: hardening/infra (Caddy + container app, deploy Lightsail), Auth Customer (Google OAuth, kini masih 501), polish UI/test e2e.
 - Keputusan tertunda (perlu kamu putuskan):
-    1. WS auth: subscribe topic display dibuat PUBLIK (data TV memang publik). Bila butuh
+    1. WS auth: subscribe topic display tetap PUBLIK (data TV memang publik). Bila butuh
        privasi lebih, perketat ke JWT-per-koneksi nanti.
-    2. push: butuh generate VAPID keypair + caveat iOS (PWA harus di-install).
+    2. Push iOS: hanya jalan bila PWA di-install ke Home Screen (sudah didokumentasikan di UI
+       PushButton + caveat). In-app banner via WS tetap jalur utama, push = fallback.
+    3. VAPID keypair dev sudah di-generate & ada di backend/.env (gitignored). PRODUKSI: generate
+       keypair baru, jangan pakai yang dev.
 
 ## Baseline — kondisi awal saat tracking dimulai (2026-06-08)
 <!-- ditulis sekali, tidak diubah lagi -->
@@ -37,6 +40,30 @@ Folder placeholder (.gitkeep, belum diisi): platforms/  tickets/  push/  ws/
 
 ## Task Log
 <!-- append-only, entri terbaru di ATAS -->
+
+### [2026-06-10] T-004 — Notifications (Web Push: VAPID + Service Worker + PWA)
+- Tujuan     : reminder "sisa 3" (CUS-5) & notifikasi "ready" (CUS-6) via Web Push tanpa third-party; PWA customer
+- Dikerjakan : backend domain push/ (sender bungkus web-push, repo, service factory, notify hook no-op ala broadcast.ts,
+               handler, routes PUBLIK); endpoint POST /tickets/:id/push-subscribe + GET /push/vapid-public-key;
+               trigger di ticketops.service.act → onTicketCalled (action call) + onQueueAdvanced (keluar dari WAITING);
+               migrasi 003 UNIQUE(ticket_id,endpoint) utk upsert idempoten; reminder "sisa 3" idempoten via reminded_3
+               di-klaim ATOMIK (UPDATE..RETURNING, anti balapan); cleanup endpoint gone (404/410);
+               customer PWA: manifest.webmanifest + icons (generator PNG) + sw.js (push/notificationclick) +
+               lib/push.ts (register SW + PushManager.subscribe) + PushButton di /t/[ticketId]; meta iOS di layout
+- File berubah : backend/src/push/* (6 file + test), backend/src/lib/env.ts, backend/src/app.ts, backend/src/index.ts,
+               backend/src/tickets/ticketops.service.ts, backend/src/db/migrations/003_*.sql, backend/.env(.example);
+               apps/customer/{public/{sw.js,manifest.webmanifest,icons/*},lib/push.ts,app/t/[ticketId]/{page.tsx,PushButton.tsx},
+               app/layout.tsx,.env.example,.env.local}, package.json (web-push)
+- Keputusan  : lib web-push (jalan di Bun, terverifikasi); VAPID OPSIONAL di env → push auto-nonaktif bila kosong
+               (booking/call tetap jalan); reminder dikirim saat posisi-di-depan ≤ 3 (aman bila antrian melompat);
+               push = fire-and-forget + try/catch (gagal push tak pernah menggagalkan aksi operator);
+               notify pakai hook no-op ala broadcast.ts agar unit test ticketops tetap bebas DB/push
+- Verifikasi : tsc bersih; bun test 42 pass (6 file, +push.service.test); customer build sukses;
+               e2e: vapid-key enabled; subscribe 404 (tiket ngawur)/400 (body buruk)/201 (happy); re-subscribe = upsert (1 row);
+               call → notifyReady terkirim (fake endpoint gagal anggun, aksi tetap 200);
+               claimRemindThree REAL DB: 7 waiting → A-003..A-006 (ahead 0-3) reminded, A-007 (ahead4) tidak; advance lagi → A-007 flip, sisanya idempoten (tak dobel). DB dibersihkan ke baseline (0/0/0)
+- Status     : ✅ done (siap commit)
+- Next        : — semua modul §9 selesai. Kandidat: infra/deploy, Auth Customer (OAuth), polish.
 
 ### [2026-06-10] T-003 — Monitor + TV display (WebSocket realtime penuh + app TV)
 - Tujuan     : aktifkan /ws pub/sub (yang tadinya stub), layar TV publik per outlet, ganti polling jadi realtime
