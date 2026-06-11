@@ -15,6 +15,7 @@ import {
 } from "@/lib/outlets";
 import { ApiClientError } from "@/lib/api";
 import { DAY_NAMES, hhmm, openReasonLabel } from "@/lib/outletStatus";
+import { QrCard } from "./QrCard";
 
 export default function OutletDetailPage({
   params,
@@ -57,6 +58,7 @@ function OutletDetail({ id }: { id: string }) {
           router.push("/outlets");
         }}
       />
+      <QrCard outlet={data} />
       <HoursCard outlet={data} onSaved={invalidate} />
       <PlatformsCard outlet={data} onChanged={invalidate} />
     </div>

@@ -3,6 +3,7 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import { jsonBody } from "../lib/validate.ts";
+import { rateLimit } from "../lib/rateLimit.ts";
 import { bookTicket, getDisplay, getTicket } from "./ticket.handler.ts";
 
 const bookSchema = z.object({
@@ -11,8 +12,11 @@ const bookSchema = z.object({
 
 export const ticketRoutes = new Hono();
 
+// Anti-spam booking: maks 10 ambil-nomor per menit per IP.
+const bookLimiter = rateLimit({ name: "book", windowMs: 60_000, max: 10 });
+
 // Ambil antrian: pilih outlet → auto-assign platform → nomor.
-ticketRoutes.post("/outlets/:id/tickets", jsonBody(bookSchema), bookTicket);
+ticketRoutes.post("/outlets/:id/tickets", bookLimiter, jsonBody(bookSchema), bookTicket);
 
 // Status tiket + sisa di depan.
 ticketRoutes.get("/tickets/:id", getTicket);

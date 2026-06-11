@@ -37,6 +37,8 @@ export const Errors = {
     new AppError("NOT_FOUND", `${what} tidak ditemukan.`, 404),
   conflict: (code: string, message: string) =>
     new AppError(code, message, 409),
+  tooManyRequests: (message = "Terlalu banyak permintaan, coba lagi nanti.") =>
+    new AppError("RATE_LIMITED", message, 429),
   internal: () =>
     new AppError("INTERNAL", "Terjadi kesalahan internal.", 500),
 };

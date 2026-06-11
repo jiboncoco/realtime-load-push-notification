@@ -1,11 +1,11 @@
 # Progress Report
 
 ## Current State
-- Last updated : 2026-06-10
-- Branch aktif : main (T-004 ter-commit 06ab86c; T-005 Outlet Status & Jam Operasional SELESAI, BELUM di-commit)
-- Sudah jadi   : Auth, Outlet & Platform (+status/jam), User & Operator, Queue Booking (+guard buka/tutup), Queue Call & Skip, Monitor+TV (WS realtime + TV app), Notifications (Web Push), Customer app/PWA (+daftar outlet), DB schema
-- Sedang jalan : — (7 modul §9 + revisi T-005 selesai)
-- Task BERIKUT : — kandidat: infra/deploy Lightsail (push butuh HTTPS), Auth Customer (Google OAuth, masih 501), polish/test e2e.
+- Last updated : 2026-06-11
+- Branch aktif : main (T-005 ter-push 331971b; T-006 Hardening+QR SELESAI, BELUM di-commit)
+- Sudah jadi   : Auth, Outlet & Platform (+status/jam/kode/QR), User & Operator, Queue Booking (+guard buka/tutup +rate-limit), Queue Call & Skip, Monitor+TV (WS realtime + TV app responsif), Notifications (Web Push +rate-limit), Customer app/PWA (+daftar outlet), CI GitHub Actions, DB schema
+- Sedang jalan : — (7 modul §9 + revisi T-005 + hardening/QR T-006 selesai)
+- Task BERIKUT : commit T-006; lalu DEPLOY Lightsail (Track 1, push butuh HTTPS). Tertunda by design: e2e Playwright, uji push perangkat nyata (butuh HTTPS), Google OAuth (Phase 2).
 - Keputusan tertunda (perlu kamu putuskan):
     1. WS auth: subscribe topic display tetap PUBLIK (data TV memang publik). Bila butuh
        privasi lebih, perketat ke JWT-per-koneksi nanti.
@@ -40,6 +40,24 @@ Folder placeholder (.gitkeep, belum diisi): platforms/  tickets/  push/  ws/
 
 ## Task Log
 <!-- append-only, entri terbaru di ATAS -->
+
+### [2026-06-11] T-006 — Hardening (rate limit + CI) + QR outlet + display responsif
+- Tujuan     : tutup item kualitas (poin 3) yang bisa dikerjakan tanpa deploy + modul QR (poin 5) + display responsif (poin 4)
+- Keputusan user : OAuth Google = tetap ada tapi PHASE 2 (bukan Phase 1); reset harian DIKONFIRMASI; satu TV per outlet
+                (hardware urusan client) TAPI tampilan harus responsif (bisa di layar apa pun); QR bisa disimpan & dicetak.
+- Dikerjakan : (rate limit) lib/rateLimit.ts (fixed-window in-memory per IP via X-Forwarded-For) + Errors.tooManyRequests(429),
+                dipasang di booking (10/mnt) & push-subscribe (20/mnt); (CI) .github/workflows/ci.yml — backend tsc+bun test,
+                matrix apps cms/customer/tv tsc+build; (QR) apps/cms QrCard.tsx pakai lib `qrcode` → tampil + Unduh PNG +
+                Cetak, arah ke {NEXT_PUBLIC_CUSTOMER_BASE}/o/{id}; (display) apps/tv responsif (font/padding skala HP→TV)
+- File berubah : backend/src/lib/{rateLimit.ts,response.ts}, tickets/ticket.routes.ts, push/push.routes.ts;
+                .github/workflows/ci.yml; apps/cms/{package.json,.env.local,.env.example,app/outlets/[id]/{QrCard.tsx,page.tsx}};
+                apps/tv/app/[outletId]/page.tsx
+- Tidak dikerjakan (alasan) : e2e Playwright (besar/flaky → sesi khusus); uji push perangkat nyata (butuh HTTPS → Track 1 deploy)
+- Verifikasi : backend tsc bersih + bun test 50 pass; cms+tv tsc bersih; halaman cms/tv render 200;
+                e2e rate-limit: 12x booking → 10×201 lalu 2×429 (Retry-After di-set). Catatan: Postgres sempat mati saat uji,
+                di-up lagi (data di volume persisten utuh).
+- Status     : ✅ done (BELUM di-commit)
+- Next        : commit T-006; mulai Track 1 (Deploy Lightsail).
 
 ### [2026-06-10] T-005 — Outlet Status & Jam Operasional (revisi dari user)
 - Tujuan     : (1) kode pendek outlet di CMS untuk diberitahu ke customer; (2) customer lihat daftar outlet

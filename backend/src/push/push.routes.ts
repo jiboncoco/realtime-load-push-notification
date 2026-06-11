@@ -2,6 +2,7 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import { jsonBody } from "../lib/validate.ts";
+import { rateLimit } from "../lib/rateLimit.ts";
 import { subscribePush, vapidPublicKey } from "./push.handler.ts";
 
 // Bentuk PushSubscription.toJSON() dari browser.
@@ -18,6 +19,7 @@ export const pushRoutes = new Hono();
 pushRoutes.get("/push/vapid-public-key", vapidPublicKey);
 pushRoutes.post(
   "/tickets/:id/push-subscribe",
+  rateLimit({ name: "push-sub", windowMs: 60_000, max: 20 }),
   jsonBody(subscribeSchema),
   subscribePush,
 );

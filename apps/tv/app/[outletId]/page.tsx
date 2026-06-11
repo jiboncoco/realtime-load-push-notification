@@ -28,13 +28,17 @@ export default function TvPage({
     return <Center>Outlet tidak ditemukan.</Center>;
 
   return (
-    <main className="min-h-screen p-8">
-      <header className="mb-8 flex items-baseline justify-between border-b border-slate-700 pb-4">
-        <h1 className="text-4xl font-bold">{data.outlet.name}</h1>
-        <span className="text-xl text-slate-400">Antrian</span>
+    <main className="min-h-screen p-4 sm:p-6 lg:p-8">
+      <header className="mb-5 flex items-baseline justify-between gap-3 border-b border-slate-700 pb-3 sm:mb-8 sm:pb-4">
+        <h1 className="truncate text-2xl font-bold sm:text-3xl lg:text-4xl">
+          {data.outlet.name}
+        </h1>
+        <span className="shrink-0 text-base text-slate-400 sm:text-xl">
+          Antrian
+        </span>
       </header>
 
-      <div className="grid auto-rows-fr gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid auto-rows-fr gap-3 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 lg:gap-6">
         {data.platforms.map((p) => (
           <PlatformCard key={p.id} p={p} />
         ))}
@@ -47,24 +51,26 @@ function PlatformCard({ p }: { p: DisplayPlatform }) {
   const active = !!p.current;
   return (
     <div
-      className={`flex flex-col items-center justify-center rounded-3xl p-8 text-center ${
+      className={`flex flex-col items-center justify-center rounded-2xl p-5 text-center sm:rounded-3xl sm:p-8 ${
         active ? "bg-brand" : "bg-slate-800"
       }`}
     >
-      <div className="text-2xl font-semibold text-slate-200">
+      <div className="text-lg font-semibold text-slate-200 sm:text-2xl">
         {p.code} · {p.name}
       </div>
-      <div className="my-4 text-7xl font-black tracking-tight">
+      <div className="my-2 text-5xl font-black tracking-tight sm:my-4 sm:text-7xl lg:text-8xl">
         {p.current ? p.current.label : "—"}
       </div>
-      <div className="text-lg text-slate-300">
+      <div className="text-base text-slate-300 sm:text-lg">
         {p.current
           ? p.current.status === "CALLED"
             ? "Silakan menuju loket"
             : "Sedang dilayani"
           : "Menunggu panggilan"}
       </div>
-      <div className="mt-2 text-sm text-slate-400">{p.waiting} menunggu</div>
+      <div className="mt-1 text-sm text-slate-400 sm:mt-2">
+        {p.waiting} menunggu
+      </div>
     </div>
   );
 }

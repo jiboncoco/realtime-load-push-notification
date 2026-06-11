@@ -128,8 +128,13 @@ WAITING ──Panggil──► CALLED ──Layani──► SERVING ──Selesa
 9. **Status outlet** → kode pendek **6 karakter** (alfabet tanpa O/0/I/1/L); **jam operasional per hari**; **toggle manual hanya bisa menutup** (buka = dalam-jam DAN accepting); status **dihitung** dari jam WIB (tanpa cron). *(revisi T-005)*
 10. **Reminder "sisa 3" (CUS-5)** → dikirim saat posisi-di-depan **≤ 3** (bukan tepat 3) agar aman bila antrian melompat; idempoten via `reminded_3`. *(revisi T-004)*
 
+**Sudah diputuskan (lanjutan):**
+4. **Reset antrian** — ✅ **reset harian** per platform (zona WIB), format `A-012`. *(DECIDED)*
+5. **TV/Display** — ✅ satu layar per outlet menampilkan semua platform; **hardware disiapkan client** (kita hanya software). Tampilan **responsif** (HP → TV), bukan khusus TV. *(DECIDED, T-006)*
+7. **Google OAuth customer** — ✅ tetap direncanakan tapi **Phase 2** (bukan Phase 1); Phase 1 cukup anonim (device token). *(DECIDED)*
+
 **Masih perlu konfirmasi:**
-4. **Reset antrian** — nomor reset tiap hari? Format `A-001`? (`⚠️ ASUMSI`: reset harian per platform, format `A-012`.)
-5. **TV** — satu TV per outlet menampilkan semua platform? (`⚠️ ASUMSI`: ya.)
-6. **Skala MVP** — berapa outlet & customer konkuren? (memengaruhi sizing instance Lightsail.)
-7. **iOS push** — target iOS Safari? (Web Push butuh PWA terinstall, iOS 16.4+.)
+6. **Skala MVP** — berapa outlet & customer konkuren? (memengaruhi sizing instance Lightsail saat deploy.)
+8. **iOS push** — sudah didokumentasi (butuh PWA terinstall, iOS 16.4+); konfirmasi apakah cukup.
+
+**NFR tambahan (T-006):** rate limiting endpoint publik (booking 10/mnt, push-subscribe 20/mnt per IP); CI (GitHub Actions: tsc + test + build). QR per outlet (CUS-2) tersedia di CMS (unduh PNG + cetak).

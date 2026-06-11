@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  backend:
+    name: Backend (tsc + test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Install
+        working-directory: backend
+        run: bun install --frozen-lockfile
+      - name: Typecheck
+        working-directory: backend
+        run: bunx tsc --noEmit
+      - name: Unit test
+        working-directory: backend
+        run: bun test
+
+  frontend:
+    name: ${{ matrix.app }} (tsc + build)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [cms, customer, tv]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Install
+        working-directory: apps/${{ matrix.app }}
+        run: bun install --frozen-lockfile
+      - name: Typecheck
+        working-directory: apps/${{ matrix.app }}
+        run: bunx tsc --noEmit
+      - name: Build
+        working-directory: apps/${{ matrix.app }}
+        run: bun run build
