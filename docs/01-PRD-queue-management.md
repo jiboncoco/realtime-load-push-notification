@@ -60,6 +60,8 @@ TV Display  ────►  CMS (mode TV, read-only)
 | CMS-5 | Realtime Refresh | CMS auto-update saat ada antrian baru | Antrian baru muncul di list operator & monitor tanpa reload (WebSocket). |
 | CMS-6 | Operator per Outlet | Operator hanya akses outlet yang di-assign | Scoping ditegakkan di aplikasi (service layer + query). |
 | CMS-7 | TV Display | Antrian tampil di TV per outlet | Halaman publik read-only; tampilkan "sedang dipanggil" per platform; update real-time; layout besar. |
+| CMS-8 | Kode Outlet | Sebagai operator, saya memberitahu customer outlet mana yang harus dipilih | Tiap outlet punya **kode pendek unik** (6 karakter ramah-baca, tampil `K7Q-9PT`); tampil di CMS untuk dibacakan/diketik customer. UUID tetap dipakai internal. |
+| CMS-9 | Buka/Tutup & Jam Operasional | Sebagai client, saya menutup outlet sementara & mengatur jam operasional | Toggle **"terima antrian"** (tutup manual mis. istirahat/darurat); **jam operasional per hari** (Min–Sab, tiap hari bisa diisi jam atau ditandai libur); **di luar jam → outlet otomatis tutup** & antrian tak bisa diambil. Status buka/tutup **dihitung real-time** (bukan timer/cron). Toggle manual hanya bisa **menutup**; buka tetap mengikuti jam. |
 
 ---
 
@@ -67,7 +69,8 @@ TV Display  ────►  CMS (mode TV, read-only)
 
 | ID | Fitur | User Story | Acceptance Criteria |
 |----|-------|------------|---------------------|
-| CUS-1 | Booking + Auto-assign Platform | Customer ambil antrian | Pilih outlet → **sistem auto-assign ke platform paling kosong**; customer dapat nomor unik. |
+| CUS-0 | Daftar Outlet + Status Buka/Tutup | Customer melihat outlet mana yang buka & bisa diambil antriannya | Home menampilkan **daftar outlet** + status buka/tutup + jam hari ini; outlet **buka** bisa dipilih, **tutup** di-disable. Fallback: cari outlet via **kode** (dari operator). |
+| CUS-1 | Booking + Auto-assign Platform | Customer ambil antrian | Pilih outlet → **sistem auto-assign ke platform paling kosong**; customer dapat nomor unik. **Ditolak (`OUTLET_CLOSED`) bila outlet tutup** (di luar jam / ditutup manual). |
 | CUS-2 | Akses via QR | Customer buka booking via QR di lokasi | QR membawa ke halaman booking dengan outlet ter-preselect. |
 | CUS-3 | Login Opsional + Google | Tidak wajib login; sediakan login Google | Bisa ambil antrian tanpa login (device token); login Google opsional untuk lintas-device. |
 | CUS-4 | Status Antrian | Customer lihat nomornya & sisa antrian di depannya | Tampilkan nomor + jumlah antrian di depan (per platform); update real-time. |
@@ -109,9 +112,9 @@ WAITING ──Panggil──► CALLED ──Layani──► SERVING ──Selesa
 
 ## 8. MVP Scope
 
-**In scope:** semua FR §4 & §5, TV display, realtime, web push, auth CMS (email+pw) & customer (Google opsional + anonim).
+**In scope:** semua FR §4 & §5, TV display, realtime, web push, auth CMS (email+pw) & customer (Google opsional + anonim), **kode outlet, daftar outlet publik, buka/tutup manual + jam operasional per hari** (revisi T-005).
 
-**Out of scope:** estimasi waktu tunggu, auto-skip timer, analitik historis, pembayaran/POS, SMS/WA/email, app native.
+**Out of scope:** estimasi waktu tunggu, auto-skip timer, analitik historis, pembayaran/POS, SMS/WA/email, app native, **libur insidental/tanggal merah** (pakai toggle manual), **jam operasional lewat tengah malam / overnight** (tutup < buka).
 
 ---
 
@@ -121,6 +124,9 @@ WAITING ──Panggil──► CALLED ──Layani──► SERVING ──Selesa
 1. Platform → **auto-assign ke platform paling kosong**; outlet wajib ≥1 platform.
 2. Auth CMS → **email+password, tanpa register** (akun dibuat di CMS). Role: client(admin) vs operator.
 3. Skip → customer **ambil ulang dapat nomor baru**; booking boleh dari mana saja.
+8. **Customer app single-tenant** → daftar outlet publik menampilkan **semua outlet** (lintas-client). Bila berkembang multi-bisnis, di-scope per client (kode jadi unik per-client). *(revisi T-005)*
+9. **Status outlet** → kode pendek **6 karakter** (alfabet tanpa O/0/I/1/L); **jam operasional per hari**; **toggle manual hanya bisa menutup** (buka = dalam-jam DAN accepting); status **dihitung** dari jam WIB (tanpa cron). *(revisi T-005)*
+10. **Reminder "sisa 3" (CUS-5)** → dikirim saat posisi-di-depan **≤ 3** (bukan tepat 3) agar aman bila antrian melompat; idempoten via `reminded_3`. *(revisi T-004)*
 
 **Masih perlu konfirmasi:**
 4. **Reset antrian** — nomor reset tiap hari? Format `A-001`? (`⚠️ ASUMSI`: reset harian per platform, format `A-012`.)

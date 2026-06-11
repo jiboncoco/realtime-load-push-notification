@@ -28,10 +28,35 @@ const updateOutletSchema = z
   .object({
     name: z.string().trim().min(1).max(120).optional(),
     address: z.string().trim().max(255).nullable().optional(),
+    accepting: z.boolean().optional(), // toggle buka/tutup manual
   })
-  .refine((v) => v.name !== undefined || v.address !== undefined, {
-    message: "Tidak ada field untuk diubah.",
-  });
+  .refine(
+    (v) =>
+      v.name !== undefined || v.address !== undefined || v.accepting !== undefined,
+    { message: "Tidak ada field untuk diubah." },
+  );
+
+// Jam operasional: replace-all 0..7 hari. weekday 0=Min..6=Sab.
+const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/;
+const dayHoursSchema = z
+  .object({
+    weekday: z.number().int().min(0).max(6),
+    is_closed: z.boolean(),
+    open_time: z.string().regex(TIME_RE).nullish(),
+    close_time: z.string().regex(TIME_RE).nullish(),
+  })
+  .refine(
+    (d) =>
+      d.is_closed ||
+      (!!d.open_time && !!d.close_time && d.open_time < d.close_time),
+    { message: "Jam buka harus lebih awal dari jam tutup." },
+  );
+const setHoursSchema = z
+  .object({ hours: z.array(dayHoursSchema).max(7) })
+  .refine(
+    (v) => new Set(v.hours.map((h) => h.weekday)).size === v.hours.length,
+    { message: "Hari duplikat dalam jadwal." },
+  );
 
 const updatePlatformSchema = z
   .object({
@@ -48,10 +73,19 @@ const updatePlatformSchema = z
 const admin = [requireAuth, requireRole("admin")] as const;
 
 export const outletRoutes = new Hono<AuthEnv>();
+
+// Publik (customer, TANPA auth). Segmen statis (/public, /code) diprioritaskan
+// di atas /:id oleh router Hono, jadi tak bentrok dengan route admin.
+outletRoutes.get("/public", h.listPublicOutlets);
+outletRoutes.get("/code/:code", h.getOutletByCode);
+outletRoutes.get("/:id/info", h.getOutletInfo);
+
+// Admin (JWT + role admin), per-route agar tak menelan booking publik.
 outletRoutes.get("/", ...admin, h.listOutlets);
 outletRoutes.post("/", ...admin, jsonBody(createOutletSchema), h.createOutlet);
 outletRoutes.get("/:id", ...admin, h.getOutlet);
 outletRoutes.patch("/:id", ...admin, jsonBody(updateOutletSchema), h.updateOutlet);
+outletRoutes.put("/:id/hours", ...admin, jsonBody(setHoursSchema), h.setOutletHours);
 outletRoutes.delete("/:id", ...admin, h.deleteOutlet);
 outletRoutes.post("/:id/platforms", ...admin, jsonBody(platformSchema), h.addPlatform);
 

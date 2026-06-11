@@ -4,6 +4,7 @@
 import { sql } from "../db/client.ts";
 import { Errors } from "../lib/response.ts";
 import { formatLabel, wibDay } from "./ticket.label.ts";
+import { computeOpen, wibNowParts, type DayHours } from "../outlets/outlet.status.ts";
 
 export type TicketStatusValue =
   | "WAITING"
@@ -39,11 +40,26 @@ export const ticketRepo: TicketRepo = {
       // 1) Serialize booking per-outlet (auto-release di akhir transaksi).
       await tx`SELECT pg_advisory_xact_lock(hashtext(${outletId}))`;
 
-      // Pastikan outlet ada.
-      const [outlet] = await tx<{ id: string }[]>`
-        SELECT id FROM outlets WHERE id = ${outletId}
+      // Pastikan outlet ada + ambil status terima antrian.
+      const [outlet] = await tx<{ id: string; accepting: boolean }[]>`
+        SELECT id, accepting FROM outlets WHERE id = ${outletId}
       `;
       if (!outlet) throw Errors.notFound("Outlet");
+
+      // Guard buka/tutup: tolak booking bila di luar jam / ditutup manual.
+      const { weekday } = wibNowParts();
+      const todayHours = await tx<DayHours[]>`
+        SELECT weekday, is_closed,
+               to_char(open_time, 'HH24:MI:SS')  AS open_time,
+               to_char(close_time, 'HH24:MI:SS') AS close_time
+        FROM outlet_hours WHERE outlet_id = ${outletId} AND weekday = ${weekday}
+      `;
+      if (!computeOpen(outlet.accepting, todayHours).open) {
+        throw Errors.conflict(
+          "OUTLET_CLOSED",
+          "Outlet sedang tutup, antrian tidak bisa diambil.",
+        );
+      }
 
       // 2) Platform WAITING paling sedikit, tie-break code ASC.
       const [platform] = await tx<PlatformBrief[]>`

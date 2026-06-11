@@ -1,12 +1,17 @@
-// Repo Outlet & Platform. SEMUA query difilter client_id (scoping multi-tenant
-// di aplikasi, CLAUDE.md §4) — termasuk operasi platform via join ke outlets.
+// Repo Outlet & Platform. SEMUA query (admin) difilter client_id (scoping
+// multi-tenant di aplikasi, CLAUDE.md §4). Endpoint publik (listPublic/info/
+// findByCode) sengaja LINTAS-client (asumsi satu bisnis) — lihat outlet.routes.ts.
 import { sql } from "../db/client.ts";
 import { Errors } from "../lib/response.ts";
+import { generateOutletCode } from "./outlet.code.ts";
+import type { DayHours } from "./outlet.status.ts";
 
 export type Outlet = {
   id: string;
   client_id: string;
   name: string;
+  code: string;
+  accepting: boolean;
   address: string | null;
   created_at: string;
 };
@@ -19,20 +24,39 @@ export type Platform = {
   created_at: string;
 };
 
-export type OutletWithPlatforms = Outlet & { platforms: Platform[] };
+export type OutletWithHours = Outlet & { hours: DayHours[] };
+export type OutletWithPlatforms = OutletWithHours & { platforms: Platform[] };
+
+// Outlet versi publik (tanpa client_id) + jadwal → status dihitung di service.
+export type PublicOutlet = {
+  id: string;
+  code: string;
+  name: string;
+  address: string | null;
+  accepting: boolean;
+  hours: DayHours[];
+};
 
 export type NewPlatform = { code: string; name: string };
 
 // Postgres unique_violation → konflik domain (mis. code platform dobel di outlet).
 function rethrowUnique(e: unknown, message: string): never {
-  if (e && typeof e === "object" && (e as { code?: string }).code === "23505") {
+  if (isUnique(e)) {
     throw Errors.conflict("DUPLICATE_PLATFORM_CODE", message);
   }
   throw e;
 }
 
+function isUnique(e: unknown, constraint?: string): boolean {
+  const err = e as { code?: string; constraint_name?: string };
+  return (
+    err?.code === "23505" &&
+    (constraint === undefined || err.constraint_name === constraint)
+  );
+}
+
 export interface OutletRepo {
-  list(clientId: string): Promise<Outlet[]>;
+  list(clientId: string): Promise<OutletWithHours[]>;
   createWithPlatforms(
     clientId: string,
     input: { name: string; address?: string | null; platforms: NewPlatform[] },
@@ -44,9 +68,15 @@ export interface OutletRepo {
   update(
     clientId: string,
     outletId: string,
-    patch: { name?: string; address?: string | null },
+    patch: { name?: string; address?: string | null; accepting?: boolean },
   ): Promise<Outlet | null>;
   remove(clientId: string, outletId: string): Promise<boolean>;
+  // Ganti seluruh jadwal jam outlet (replace-all). null = milik client lain/tak ada.
+  setHours(
+    clientId: string,
+    outletId: string,
+    hours: DayHours[],
+  ): Promise<DayHours[] | null>;
   addPlatform(
     clientId: string,
     outletId: string,
@@ -63,44 +93,77 @@ export interface OutletRepo {
     platformId: string,
   ): Promise<{ platform: Platform; siblingCount: number } | null>;
   removePlatform(platformId: string): Promise<void>;
+  // Publik (lintas-client):
+  listPublic(): Promise<PublicOutlet[]>;
+  getPublicInfo(outletId: string): Promise<PublicOutlet | null>;
+  findByCode(code: string): Promise<PublicOutlet | null>;
+}
+
+// Ambil jam operasional untuk sekumpulan outlet → { outletId: DayHours[] }.
+async function hoursByOutlet(
+  outletIds: string[],
+): Promise<Record<string, DayHours[]>> {
+  const map: Record<string, DayHours[]> = {};
+  if (outletIds.length === 0) return map;
+  const rows = await sql<({ outlet_id: string } & DayHours)[]>`
+    SELECT outlet_id, weekday, is_closed,
+           to_char(open_time, 'HH24:MI:SS')  AS open_time,
+           to_char(close_time, 'HH24:MI:SS') AS close_time
+    FROM outlet_hours
+    WHERE outlet_id IN ${sql(outletIds)}
+    ORDER BY weekday
+  `;
+  for (const r of rows) {
+    const { outlet_id, ...h } = r;
+    (map[outlet_id] ??= []).push(h);
+  }
+  return map;
 }
 
 export const outletRepo: OutletRepo = {
   async list(clientId) {
-    return sql<Outlet[]>`
-      SELECT id, client_id, name, address, created_at
+    const outlets = await sql<Outlet[]>`
+      SELECT id, client_id, name, code, accepting, address, created_at
       FROM outlets WHERE client_id = ${clientId}
       ORDER BY created_at DESC
     `;
+    const hours = await hoursByOutlet(outlets.map((o) => o.id));
+    return outlets.map((o) => ({ ...o, hours: hours[o.id] ?? [] }));
   },
 
   async createWithPlatforms(clientId, input) {
-    try {
-      return await sql.begin(async (tx) => {
-        const [outlet] = await tx<Outlet[]>`
-          INSERT INTO outlets (client_id, name, address)
-          VALUES (${clientId}, ${input.name}, ${input.address ?? null})
-          RETURNING id, client_id, name, address, created_at
-        `;
-        const platforms: Platform[] = [];
-        for (const p of input.platforms) {
-          const [row] = await tx<Platform[]>`
-            INSERT INTO platforms (outlet_id, code, name)
-            VALUES (${outlet!.id}, ${p.code}, ${p.name})
-            RETURNING id, outlet_id, code, name, created_at
+    // Generate kode unik; ulangi bila tabrakan (sangat jarang).
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const code = generateOutletCode();
+      try {
+        return await sql.begin(async (tx) => {
+          const [outlet] = await tx<Outlet[]>`
+            INSERT INTO outlets (client_id, name, code, address)
+            VALUES (${clientId}, ${input.name}, ${code}, ${input.address ?? null})
+            RETURNING id, client_id, name, code, accepting, address, created_at
           `;
-          platforms.push(row!);
-        }
-        return { ...outlet!, platforms };
-      });
-    } catch (e) {
-      rethrowUnique(e, "Kode platform duplikat dalam outlet.");
+          const platforms: Platform[] = [];
+          for (const p of input.platforms) {
+            const [row] = await tx<Platform[]>`
+              INSERT INTO platforms (outlet_id, code, name)
+              VALUES (${outlet!.id}, ${p.code}, ${p.name})
+              RETURNING id, outlet_id, code, name, created_at
+            `;
+            platforms.push(row!);
+          }
+          return { ...outlet!, platforms, hours: [] as DayHours[] };
+        });
+      } catch (e) {
+        if (isUnique(e, "uq_outlets_code")) continue; // tabrakan kode → coba lagi
+        rethrowUnique(e, "Kode platform duplikat dalam outlet.");
+      }
     }
+    throw Errors.internal(); // gagal 5x cari kode unik (praktis mustahil)
   },
 
   async getWithPlatforms(clientId, outletId) {
     const [outlet] = await sql<Outlet[]>`
-      SELECT id, client_id, name, address, created_at
+      SELECT id, client_id, name, code, accepting, address, created_at
       FROM outlets WHERE id = ${outletId} AND client_id = ${clientId}
     `;
     if (!outlet) return null;
@@ -109,16 +172,18 @@ export const outletRepo: OutletRepo = {
       FROM platforms WHERE outlet_id = ${outletId}
       ORDER BY code ASC
     `;
-    return { ...outlet, platforms };
+    const hours = await hoursByOutlet([outletId]);
+    return { ...outlet, platforms, hours: hours[outletId] ?? [] };
   },
 
   async update(clientId, outletId, patch) {
     const [row] = await sql<Outlet[]>`
       UPDATE outlets SET
         name = COALESCE(${patch.name ?? null}, name),
-        address = ${patch.address === undefined ? sql`address` : patch.address}
+        address = ${patch.address === undefined ? sql`address` : patch.address},
+        accepting = COALESCE(${patch.accepting ?? null}, accepting)
       WHERE id = ${outletId} AND client_id = ${clientId}
-      RETURNING id, client_id, name, address, created_at
+      RETURNING id, client_id, name, code, accepting, address, created_at
     `;
     return row ?? null;
   },
@@ -131,8 +196,29 @@ export const outletRepo: OutletRepo = {
     return rows.length > 0;
   },
 
+  async setHours(clientId, outletId, hours) {
+    return sql.begin(async (tx) => {
+      // Pastikan outlet milik client (scoping) sebelum mengganti jadwal.
+      const [owned] = await tx<{ id: string }[]>`
+        SELECT id FROM outlets WHERE id = ${outletId} AND client_id = ${clientId}
+      `;
+      if (!owned) return null;
+
+      await tx`DELETE FROM outlet_hours WHERE outlet_id = ${outletId}`;
+      for (const h of hours) {
+        await tx`
+          INSERT INTO outlet_hours (outlet_id, weekday, is_closed, open_time, close_time)
+          VALUES (${outletId}, ${h.weekday}, ${h.is_closed},
+                  ${h.is_closed ? null : h.open_time},
+                  ${h.is_closed ? null : h.close_time})
+        `;
+      }
+      const map = await hoursByOutlet([outletId]);
+      return map[outletId] ?? [];
+    });
+  },
+
   async addPlatform(clientId, outletId, input) {
-    // Pastikan outlet milik client sebelum insert.
     const [outlet] = await sql<{ id: string }[]>`
       SELECT id FROM outlets WHERE id = ${outletId} AND client_id = ${clientId}
     `;
@@ -180,5 +266,32 @@ export const outletRepo: OutletRepo = {
 
   async removePlatform(platformId) {
     await sql`DELETE FROM platforms WHERE id = ${platformId}`;
+  },
+
+  // ── Publik (lintas-client; asumsi satu bisnis) ───────────────────────────
+  async listPublic() {
+    const outlets = await sql<PublicOutlet[]>`
+      SELECT id, code, name, address, accepting FROM outlets ORDER BY name
+    `;
+    const hours = await hoursByOutlet(outlets.map((o) => o.id));
+    return outlets.map((o) => ({ ...o, hours: hours[o.id] ?? [] }));
+  },
+
+  async getPublicInfo(outletId) {
+    const [o] = await sql<PublicOutlet[]>`
+      SELECT id, code, name, address, accepting FROM outlets WHERE id = ${outletId}
+    `;
+    if (!o) return null;
+    const hours = await hoursByOutlet([outletId]);
+    return { ...o, hours: hours[outletId] ?? [] };
+  },
+
+  async findByCode(code) {
+    const [o] = await sql<PublicOutlet[]>`
+      SELECT id, code, name, address, accepting FROM outlets WHERE code = ${code}
+    `;
+    if (!o) return null;
+    const hours = await hoursByOutlet([o.id]);
+    return { ...o, hours: hours[o.id] ?? [] };
   },
 };

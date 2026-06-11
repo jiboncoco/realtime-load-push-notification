@@ -4,6 +4,8 @@ import type { Context } from "hono";
 import { ok } from "../lib/response.ts";
 import type { AuthEnv } from "../auth/auth.middleware.ts";
 import { outletService } from "./outlet.service.ts";
+import { normalizeOutletCode } from "./outlet.code.ts";
+import { broadcast } from "../ws/broadcast.ts";
 
 type Ctx = Context<AuthEnv>;
 
@@ -25,7 +27,48 @@ export async function getOutlet(c: Ctx) {
 }
 
 export async function updateOutlet(c: Ctx) {
-  return ok(c, await outletService.update(clientId(c), id(c), json(c)));
+  const outlet = await outletService.update(clientId(c), id(c), json(c));
+  // Toggle buka/tutup berdampak ke customer/TV → beri sinyal refresh.
+  broadcast(`outlet:${outlet.id}`, { type: "outlet.updated" });
+  return ok(c, outlet);
+}
+
+// PUT /outlets/:id/hours — ganti seluruh jadwal jam operasional.
+export async function setOutletHours(c: Ctx) {
+  const { hours } = json(c) as {
+    hours: {
+      weekday: number;
+      is_closed: boolean;
+      open_time?: string | null;
+      close_time?: string | null;
+    }[];
+  };
+  const saved = await outletService.setHours(
+    clientId(c),
+    id(c),
+    hours.map((h) => ({
+      weekday: h.weekday,
+      is_closed: h.is_closed,
+      open_time: h.open_time ?? null,
+      close_time: h.close_time ?? null,
+    })),
+  );
+  broadcast(`outlet:${id(c)}`, { type: "outlet.updated" });
+  return ok(c, saved);
+}
+
+// ── Publik (customer, tanpa auth) ──────────────────────────────────────────
+export async function listPublicOutlets(c: Ctx) {
+  return ok(c, await outletService.listPublic());
+}
+
+export async function getOutletInfo(c: Ctx) {
+  return ok(c, await outletService.getPublicInfo(id(c)));
+}
+
+export async function getOutletByCode(c: Ctx) {
+  const code = normalizeOutletCode(c.req.param("code")!);
+  return ok(c, await outletService.getByCode(code));
 }
 
 export async function deleteOutlet(c: Ctx) {

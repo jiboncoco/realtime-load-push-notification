@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { RequireAuth } from "@/components/RequireAuth";
 import { outletsApi } from "@/lib/outlets";
+import { openReasonLabel } from "@/lib/outletStatus";
 
 export default function OutletsPage() {
   return (
@@ -47,10 +48,24 @@ function OutletsList() {
               href={`/outlets/${o.id}`}
               className="block rounded-2xl bg-white p-5 shadow-sm transition hover:shadow"
             >
-              <div className="font-medium">{o.name}</div>
-              {o.address && (
-                <div className="text-sm text-slate-500">{o.address}</div>
-              )}
+              <div className="flex items-center justify-between gap-3">
+                <div className="font-medium">{o.name}</div>
+                <span
+                  className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                    o.open
+                      ? "bg-emerald-100 text-emerald-700"
+                      : "bg-slate-100 text-slate-500"
+                  }`}
+                >
+                  {o.open ? "Buka" : "Tutup"} · {openReasonLabel(o.open_reason)}
+                </span>
+              </div>
+              <div className="mt-1 flex items-center gap-2 text-sm text-slate-500">
+                <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs font-semibold text-slate-700">
+                  {o.code_display}
+                </span>
+                {o.address && <span>{o.address}</span>}
+              </div>
             </Link>
           </li>
         ))}

@@ -10,8 +10,11 @@ function fakeRepo(overrides: Partial<OutletRepo> = {}): OutletRepo {
       id: "o1",
       client_id: clientId,
       name: input.name,
+      code: "ABC234",
+      accepting: true,
       address: input.address ?? null,
       created_at: "now",
+      hours: [],
       platforms: input.platforms.map((p: NewPlatform, i: number) => ({
         id: `p${i}`,
         outlet_id: "o1",
@@ -22,11 +25,15 @@ function fakeRepo(overrides: Partial<OutletRepo> = {}): OutletRepo {
     })),
     getWithPlatforms: mock(async () => null),
     update: mock(async () => null),
+    setHours: mock(async () => []),
     remove: mock(async () => false),
     addPlatform: mock(async () => null),
     updatePlatform: mock(async () => null),
     findPlatformWithSiblingCount: mock(async () => null),
     removePlatform: mock(async () => {}),
+    listPublic: mock(async () => []),
+    getPublicInfo: mock(async () => null),
+    findByCode: mock(async () => null),
     ...overrides,
   };
 }

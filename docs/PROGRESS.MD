@@ -2,10 +2,10 @@
 
 ## Current State
 - Last updated : 2026-06-10
-- Branch aktif : main (T-003 Monitor+TV ter-commit e753f01; T-004 Notifications selesai, siap commit)
-- Sudah jadi   : Auth, Outlet & Platform, User & Operator, Queue Booking, Queue Call & Skip, Monitor+TV (WS realtime + TV app), Notifications (Web Push), Customer app/PWA, DB schema
-- Sedang jalan : — (7 dari 7 modul §9 SELESAI — MVP Phase 1 fitur lengkap)
-- Task BERIKUT : — (semua modul §9 selesai). Kandidat berikutnya: hardening/infra (Caddy + container app, deploy Lightsail), Auth Customer (Google OAuth, kini masih 501), polish UI/test e2e.
+- Branch aktif : main (T-004 ter-commit 06ab86c; T-005 Outlet Status & Jam Operasional SELESAI, BELUM di-commit)
+- Sudah jadi   : Auth, Outlet & Platform (+status/jam), User & Operator, Queue Booking (+guard buka/tutup), Queue Call & Skip, Monitor+TV (WS realtime + TV app), Notifications (Web Push), Customer app/PWA (+daftar outlet), DB schema
+- Sedang jalan : — (7 modul §9 + revisi T-005 selesai)
+- Task BERIKUT : — kandidat: infra/deploy Lightsail (push butuh HTTPS), Auth Customer (Google OAuth, masih 501), polish/test e2e.
 - Keputusan tertunda (perlu kamu putuskan):
     1. WS auth: subscribe topic display tetap PUBLIK (data TV memang publik). Bila butuh
        privasi lebih, perketat ke JWT-per-koneksi nanti.
@@ -40,6 +40,33 @@ Folder placeholder (.gitkeep, belum diisi): platforms/  tickets/  push/  ws/
 
 ## Task Log
 <!-- append-only, entri terbaru di ATAS -->
+
+### [2026-06-10] T-005 — Outlet Status & Jam Operasional (revisi dari user)
+- Tujuan     : (1) kode pendek outlet di CMS untuk diberitahu ke customer; (2) customer lihat daftar outlet
+               yang BUKA & bisa ambil antrian; (3) CMS toggle buka/tutup + jam operasional → di luar jam auto-tutup
+- Keputusan user : single-tenant (daftar publik tampilkan semua outlet); kode pendek 6-kar alfanumerik (alfabet
+               tanpa O/0/I/1/L), tampil "K7Q-9PT"; jam operasional PER HARI (Min–Sab, bisa libur); toggle manual
+               HANYA bisa menutup (buka = dalam-jam DAN accepting). Status DIHITUNG (computeOpen), TANPA cron.
+- Dikerjakan : migrasi 004 (outlets.code UNIQUE + accepting + tabel outlet_hours; backfill kode plpgsql);
+               outlet.code.ts (generate/normalize/format), outlet.status.ts (computeOpen PURE + wibNowParts) + test 8;
+               outlet.repo/service: code+accepting+hours, enrich withStatus (code_display/open/open_reason/today_hours),
+               method publik listPublic/getPublicInfo/findByCode; endpoint publik GET /outlets/public, /outlets/code/:code,
+               /outlets/:id/info; admin PATCH +accepting & PUT /outlets/:id/hours; guard booking OUTLET_CLOSED (409) di
+               ticket.repo.book (cek accepting + jam WIB hari ini); broadcast outlet:{id} saat toggle/ubah jam;
+               CMS: badge buka/tutup + kode di list, StatusCard (kode + toggle terima antrian) + HoursCard (editor 7 hari) di detail;
+               Customer: home = daftar outlet (buka klik / tutup disabled + jam) + fallback input kode, /o/[id] tampil nama+status+guard
+- File berubah : backend/src/db/migrations/004_*.sql, outlets/{outlet.code.ts,outlet.status.ts(+test),outlet.repo.ts,
+               outlet.service.ts(+test),outlet.handler.ts,outlet.routes.ts}, tickets/ticket.repo.ts;
+               apps/cms/{lib/api.ts,lib/outlets.ts,lib/outletStatus.ts,app/outlets/page.tsx,app/outlets/[id]/page.tsx};
+               apps/customer/{lib/outlets.ts,app/page.tsx,app/o/[outletId]/page.tsx}
+- Verifikasi : tsc bersih (backend+cms+customer); bun test 50 pass (7 file, +outlet.status 8);
+               e2e: public list (code_display+open), code lookup ternormalisasi (jgf-5gv→JGF5GV), booking buka=201;
+               accepting=false → booking 409 OUTLET_CLOSED & info MANUAL_CLOSED; PUT hours semua-libur → DAY_CLOSED,
+               buka-24jam → 201, validasi buka>=tutup → 400; semua halaman render 200. DB: 2 outlet ter-backfill kode.
+- Status     : ✅ done (BELUM di-commit)
+- Catatan    : scope di luar PRD asli (jam operasional) — penambahan resmi. Hari libur insidental/tanggal merah
+               belum ada (pakai toggle manual). Overnight (tutup<buka) tak didukung (MVP).
+- Next        : commit T-005; lalu infra/deploy atau OAuth customer.
 
 ### [2026-06-10] T-004 — Notifications (Web Push: VAPID + Service Worker + PWA)
 - Tujuan     : reminder "sisa 3" (CUS-5) & notifikasi "ready" (CUS-6) via Web Push tanpa third-party; PWA customer

@@ -10,13 +10,37 @@ export type Platform = {
   created_at: string;
 };
 
+export type DayHours = {
+  weekday: number; // 0=Min..6=Sab
+  is_closed: boolean;
+  open_time: string | null; // "HH:MM:SS"
+  close_time: string | null;
+};
+
+// Field status yang ditambahkan backend (computeOpen).
+export type OutletStatus = {
+  code_display: string; // "K7Q-9PT"
+  open: boolean;
+  open_reason:
+    | "OPEN"
+    | "NO_SCHEDULE"
+    | "MANUAL_CLOSED"
+    | "DAY_CLOSED"
+    | "BEFORE_OPEN"
+    | "AFTER_CLOSE";
+  today_hours: DayHours | null;
+};
+
 export type Outlet = {
   id: string;
   client_id: string;
   name: string;
+  code: string;
+  accepting: boolean;
   address: string | null;
   created_at: string;
-};
+  hours: DayHours[];
+} & OutletStatus;
 
 export type OutletWithPlatforms = Outlet & { platforms: Platform[] };
 
@@ -32,8 +56,13 @@ export const outletsApi = {
   create: (input: { name: string; address?: string; platforms: NewPlatform[] }) =>
     api.post<OutletWithPlatforms>("/outlets", input, t()),
 
-  update: (id: string, patch: { name?: string; address?: string | null }) =>
-    api.patch<Outlet>(`/outlets/${id}`, patch, t()),
+  update: (
+    id: string,
+    patch: { name?: string; address?: string | null; accepting?: boolean },
+  ) => api.patch<Outlet>(`/outlets/${id}`, patch, t()),
+
+  setHours: (id: string, hours: DayHours[]) =>
+    api.put<DayHours[]>(`/outlets/${id}/hours`, { hours }, t()),
 
   remove: (id: string) => api.del<{ deleted: boolean }>(`/outlets/${id}`, t()),
 
