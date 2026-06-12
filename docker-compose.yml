@@ -1,5 +1,17 @@
-# Dev lokal: cukup Postgres. Backend & Next.js dijalankan via `bun run dev`
-# agar iterasi cepat. Caddy + containerisasi app menyusul di tahap deploy.
+# Stack lengkap (deploy lokal & basis Lightsail): Postgres + Backend + 3 app Next + Caddy.
+# Caddy jadi 1 pintu masuk (http://*.localhost:8080). Hanya Postgres & Caddy yang
+# publish port ke host; app/backend internal di network compose.
+#
+# Jalankan:
+#   cp .env.docker.example .env   # isi JWT_SECRET & VAPID_* (lihat backend/.env)
+#   docker compose up -d --build
+# Akses: cms.localhost:8080 · app.localhost:8080 · tv.localhost:8080 · api.localhost:8080
+#
+# Catatan NEXT_PUBLIC_*: di-bake saat BUILD (dipakai browser) → diteruskan sebagai
+# build args. Bila ganti domain, build ulang (docker compose build).
+
+x-public-api: &public_api http://api.localhost:8080
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -10,8 +22,7 @@ services:
       POSTGRES_PASSWORD: qms
       POSTGRES_DB: qms
     ports:
-      # Host 55432 → container 5432 (5432/5433 sudah dipakai Postgres lokal lain).
-      - "55432:5432"
+      - "55432:5432" # host 55432 → container 5432 (akses dari host bila perlu)
     volumes:
       - qms_pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -20,5 +31,63 @@ services:
       timeout: 5s
       retries: 5
 
+  backend:
+    build: ./backend
+    container_name: qms-backend
+    restart: unless-stopped
+    environment:
+      PORT: "3001"
+      DATABASE_URL: postgres://qms:qms@postgres:5432/qms
+      JWT_SECRET: ${JWT_SECRET}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@demo.test}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  cms:
+    build:
+      context: ./apps/cms
+      args:
+        NEXT_PUBLIC_API_BASE: *public_api
+        NEXT_PUBLIC_CUSTOMER_BASE: http://app.localhost:8080
+    container_name: qms-cms
+    restart: unless-stopped
+    depends_on: [backend]
+
+  customer:
+    build:
+      context: ./apps/customer
+      args:
+        NEXT_PUBLIC_API_BASE: *public_api
+        NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY}
+    container_name: qms-customer
+    restart: unless-stopped
+    depends_on: [backend]
+
+  tv:
+    build:
+      context: ./apps/tv
+      args:
+        NEXT_PUBLIC_API_BASE: *public_api
+    container_name: qms-tv
+    restart: unless-stopped
+    depends_on: [backend]
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: qms-caddy
+    restart: unless-stopped
+    ports:
+      - "8080:8080" # satu pintu masuk untuk semua *.localhost
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [backend, cms, customer, tv]
+
 volumes:
   qms_pgdata:
+  caddy_data:
+  caddy_config:

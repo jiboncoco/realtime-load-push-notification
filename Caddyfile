@@ -1,15 +1,37 @@
-# Reverse proxy + TLS otomatis (dipakai penuh saat deploy ke Lightsail).
-# Dev lokal: jalankan app via `bun run dev` langsung; Caddy opsional.
+# Caddy — reverse proxy 1 pintu masuk untuk seluruh stack.
+# Dipakai oleh docker-compose. LOKAL: HTTP via subdomain *.localhost:8080
+# (host 80 sering terpakai; Caddy listen 8080 di container, di-map 8080:8080).
 #
-# Contoh produksi (sesuaikan domain):
-#
-# qms.example.com {
-#     # API + WebSocket
-#     handle /auth/* { reverse_proxy backend:3001 }
-#     handle /outlets/* { reverse_proxy backend:3001 }
-#     handle /tickets/* { reverse_proxy backend:3001 }
-#     handle /ws { reverse_proxy backend:3001 }
-#
-#     # CMS (Next.js) sebagai default
-#     handle { reverse_proxy cms:3000 }
-# }
+# Subdomain *.localhost otomatis resolve ke 127.0.0.1 di Chrome/Edge/Firefox.
+# Safari: tambahkan ke /etc/hosts → 127.0.0.1 api.localhost app.localhost cms.localhost tv.localhost
+{
+	# Dev lokal: tanpa TLS otomatis.
+	auto_https off
+	admin off
+}
+
+# Backend REST + WebSocket (/ws). reverse_proxy meneruskan upgrade WS otomatis.
+http://api.localhost:8080 {
+	reverse_proxy backend:3001
+}
+
+# Customer web app (PWA).
+http://app.localhost:8080 {
+	reverse_proxy customer:3000
+}
+
+# CMS (admin + operator).
+http://cms.localhost:8080 {
+	reverse_proxy cms:3000
+}
+
+# TV display.
+http://tv.localhost:8080 {
+	reverse_proxy tv:3000
+}
+
+# ── Contoh PRODUKSI (Lightsail, domain + TLS otomatis) — aktifkan saat deploy: ──
+# api.example.com  { reverse_proxy backend:3001 }
+# antri.example.com { reverse_proxy customer:3000 }
+# cms.example.com  { reverse_proxy cms:3000 }
+# tv.example.com   { reverse_proxy tv:3000 }

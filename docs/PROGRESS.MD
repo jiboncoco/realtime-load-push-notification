@@ -1,11 +1,11 @@
 # Progress Report
 
 ## Current State
-- Last updated : 2026-06-11
-- Branch aktif : main (T-005 ter-push 331971b; T-006 Hardening+QR SELESAI, BELUM di-commit)
-- Sudah jadi   : Auth, Outlet & Platform (+status/jam/kode/QR), User & Operator, Queue Booking (+guard buka/tutup +rate-limit), Queue Call & Skip, Monitor+TV (WS realtime + TV app responsif), Notifications (Web Push +rate-limit), Customer app/PWA (+daftar outlet), CI GitHub Actions, DB schema
-- Sedang jalan : — (7 modul §9 + revisi T-005 + hardening/QR T-006 selesai)
-- Task BERIKUT : commit T-006; lalu DEPLOY Lightsail (Track 1, push butuh HTTPS). Tertunda by design: e2e Playwright, uji push perangkat nyata (butuh HTTPS), Google OAuth (Phase 2).
+- Last updated : 2026-06-12
+- Branch aktif : main (T-006 ter-push c1ce508; T-007 Deploy lokal Docker SELESAI, BELUM di-commit)
+- Sudah jadi   : Auth, Outlet & Platform (+status/jam/kode/QR), User & Operator, Queue Booking (+guard buka/tutup +rate-limit), Queue Call & Skip, Monitor+TV (WS realtime + TV responsif), Notifications (Web Push +rate-limit), Customer app/PWA (+daftar outlet), CI, **stack Docker penuh (Caddy + backend + 3 app + Postgres)**, DB schema
+- Sedang jalan : — (T-007 selesai: deploy lokal Docker jalan & terverifikasi)
+- Task BERIKUT : commit T-007; lalu DEPLOY ke Lightsail (Track 1b: reuse Dockerfile/compose, ganti Caddy ke domain+TLS). Tertunda by design: e2e Playwright, uji push perangkat nyata (butuh HTTPS publik), Google OAuth (Phase 2).
 - Keputusan tertunda (perlu kamu putuskan):
     1. WS auth: subscribe topic display tetap PUBLIK (data TV memang publik). Bila butuh
        privasi lebih, perketat ke JWT-per-koneksi nanti.
@@ -40,6 +40,26 @@ Folder placeholder (.gitkeep, belum diisi): platforms/  tickets/  push/  ws/
 
 ## Task Log
 <!-- append-only, entri terbaru di ATAS -->
+
+### [2026-06-12] T-007 — Deploy lokal dengan Docker (Caddy + seluruh stack)
+- Tujuan     : kontainerisasi penuh agar bisa "deploy lokal" via Docker (fondasi sebelum Lightsail)
+- Keputusan user : pakai Caddy (1 pintu masuk, mirip produksi); HTTP saja dulu (push tetap jalan di *.localhost)
+- Dikerjakan : Dockerfile backend (Bun: migrate+start) + 3 app Next (multi-stage standalone, NEXT_PUBLIC_* via build ARG);
+               output:"standalone" di 3 next.config; .dockerignore per app+backend; public/.gitkeep utk cms&tv;
+               Caddyfile lokal (subdomain *.localhost:8080 → backend/app/cms/tv, /ws auto-upgrade); docker-compose.yml
+               lengkap (postgres+backend+cms+customer+tv+caddy, hanya caddy:8080 & postgres:55432 ke host);
+               .env.docker.example (commit) + .env root (gitignored) untuk JWT/VAPID
+- Akses      : http://api.localhost:8080 (API+WS) · app.localhost:8080 (customer) · cms.localhost:8080 · tv.localhost:8080
+               (Safari perlu /etc/hosts; Chrome/Firefox auto-resolve *.localhost)
+- File berubah : backend/{Dockerfile,.dockerignore}, apps/*/Dockerfile, apps/*/.dockerignore, apps/*/next.config.mjs,
+               apps/{cms,tv}/public/.gitkeep, Caddyfile, docker-compose.yml, .env.docker.example
+- Verifikasi : build 4 image sukses; up semua container; via Caddy → /health ok, /outlets/public berisi data,
+               cms/app/tv 200, WebSocket upgrade 101; NEXT_PUBLIC ter-bake benar (customer→api.localhost:8080, cms QR→app.localhost:8080);
+               log backend: migrasi idempoten + "Web Push: aktif". DB via service postgres (volume persisten).
+- Catatan    : host :80 dipakai nginx lain → Caddy di :8080. NEXT_PUBLIC di-bake saat BUILD → ganti domain = build ulang.
+               Dev server host (bun run dev) tetap terpisah; stack Docker hanya pakai :8080 & :55432.
+- Status     : ✅ done (BELUM di-commit)
+- Next        : commit T-007; Track 1b deploy Lightsail (ganti Caddyfile ke domain + auto-TLS, set env produksi).
 
 ### [2026-06-11] T-006 — Hardening (rate limit + CI) + QR outlet + display responsif
 - Tujuan     : tutup item kualitas (poin 3) yang bisa dikerjakan tanpa deploy + modul QR (poin 5) + display responsif (poin 4)
