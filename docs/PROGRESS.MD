@@ -1,8 +1,9 @@
 # Progress Report
 
 ## Current State
-- Last updated : 2026-06-12
-- Branch aktif : main (T-006 ter-push c1ce508; T-007 Deploy lokal Docker SELESAI, BELUM di-commit)
+- Last updated : 2026-06-16
+- Branch aktif : main (T-006 ter-push c1ce508; T-007 Deploy lokal Docker + T-008 remap port :8090 SELESAI, BELUM di-commit)
+- Akses lokal  : stack jalan via Caddy di **:8090** (bukan 8080 — dipakai stack lain): api/app/cms/tv.localhost:8090
 - Sudah jadi   : Auth, Outlet & Platform (+status/jam/kode/QR), User & Operator, Queue Booking (+guard buka/tutup +rate-limit), Queue Call & Skip, Monitor+TV (WS realtime + TV responsif), Notifications (Web Push +rate-limit), Customer app/PWA (+daftar outlet), CI, **stack Docker penuh (Caddy + backend + 3 app + Postgres)**, DB schema
 - Sedang jalan : — (T-007 selesai: deploy lokal Docker jalan & terverifikasi)
 - Task BERIKUT : commit T-007; lalu DEPLOY ke Lightsail (Track 1b: reuse Dockerfile/compose, ganti Caddy ke domain+TLS). Tertunda by design: e2e Playwright, uji push perangkat nyata (butuh HTTPS publik), Google OAuth (Phase 2).
@@ -40,6 +41,20 @@ Folder placeholder (.gitkeep, belum diisi): platforms/  tickets/  push/  ws/
 
 ## Task Log
 <!-- append-only, entri terbaru di ATAS -->
+
+### [2026-06-16] T-008 — Pindah port stack lokal 8080 → 8090 (resolusi konflik port)
+- Tujuan     : jalankan stack Docker; host :8080 sudah dipakai container project lain
+               (`stocksync_backend` dari art-stockmovement-prep) → qms-caddy gagal bind 8080
+               (`{"8080/tcp":[]}`), semua request *.localhost:8080 nyasar ke stack lain.
+- Keputusan user : remap ke :8090 agar KEDUA stack jalan bersamaan (stocksync di :8080 tak diganggu).
+- Dikerjakan : Caddyfile (4 site address :8080→:8090 + header komentar), docker-compose.yml
+               (x-public-api & NEXT_PUBLIC_CUSTOMER_BASE →:8090, caddy ports 8090:8090).
+               Rebuild 3 image Next (NEXT_PUBLIC_* di-bake saat build); `docker compose up -d`.
+- Akses BARU : http://api.localhost:8090 · app.localhost:8090 · cms.localhost:8090 · tv.localhost:8090
+- Verifikasi : caddy bind 0.0.0.0:8090; api /health & /outlets/public 200 (format backend benar,
+               berisi data); app 200, tv 200, cms 307→/login; WS /ws upgrade 101. Semua container Up.
+- Status     : ✅ done (BELUM di-commit) — perubahan port belum di-commit bersama T-007.
+- Next        : commit T-007+T-008; Track 1b deploy Lightsail.
 
 ### [2026-06-12] T-007 — Deploy lokal dengan Docker (Caddy + seluruh stack)
 - Tujuan     : kontainerisasi penuh agar bisa "deploy lokal" via Docker (fondasi sebelum Lightsail)

@@ -1,6 +1,6 @@
 # Caddy — reverse proxy 1 pintu masuk untuk seluruh stack.
-# Dipakai oleh docker-compose. LOKAL: HTTP via subdomain *.localhost:8080
-# (host 80 sering terpakai; Caddy listen 8080 di container, di-map 8080:8080).
+# Dipakai oleh docker-compose. LOKAL: HTTP via subdomain *.localhost:8090
+# (host 80 & 8080 sering terpakai; Caddy listen 8090 di container, di-map 8090:8090).
 #
 # Subdomain *.localhost otomatis resolve ke 127.0.0.1 di Chrome/Edge/Firefox.
 # Safari: tambahkan ke /etc/hosts → 127.0.0.1 api.localhost app.localhost cms.localhost tv.localhost
@@ -11,22 +11,22 @@
 }
 
 # Backend REST + WebSocket (/ws). reverse_proxy meneruskan upgrade WS otomatis.
-http://api.localhost:8080 {
+http://api.localhost:8090 {
 	reverse_proxy backend:3001
 }
 
 # Customer web app (PWA).
-http://app.localhost:8080 {
+http://app.localhost:8090 {
 	reverse_proxy customer:3000
 }
 
 # CMS (admin + operator).
-http://cms.localhost:8080 {
+http://cms.localhost:8090 {
 	reverse_proxy cms:3000
 }
 
 # TV display.
-http://tv.localhost:8080 {
+http://tv.localhost:8090 {
 	reverse_proxy tv:3000
 }
 

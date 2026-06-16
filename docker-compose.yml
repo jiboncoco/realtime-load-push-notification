@@ -10,7 +10,7 @@
 # Catatan NEXT_PUBLIC_*: di-bake saat BUILD (dipakai browser) → diteruskan sebagai
 # build args. Bila ganti domain, build ulang (docker compose build).
 
-x-public-api: &public_api http://api.localhost:8080
+x-public-api: &public_api http://api.localhost:8090
 
 services:
   postgres:
@@ -51,7 +51,7 @@ services:
       context: ./apps/cms
       args:
         NEXT_PUBLIC_API_BASE: *public_api
-        NEXT_PUBLIC_CUSTOMER_BASE: http://app.localhost:8080
+        NEXT_PUBLIC_CUSTOMER_BASE: http://app.localhost:8090
     container_name: qms-cms
     restart: unless-stopped
     depends_on: [backend]
@@ -80,7 +80,7 @@ services:
     container_name: qms-caddy
     restart: unless-stopped
     ports:
-      - "8080:8080" # satu pintu masuk untuk semua *.localhost
+      - "8090:8090" # satu pintu masuk untuk semua *.localhost (8080 dipakai stack lain)
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
