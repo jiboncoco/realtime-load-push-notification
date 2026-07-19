@@ -1,12 +1,12 @@
 # Progress Report
 
 ## Current State
-- Last updated : 2026-06-16
-- Branch aktif : main (T-006 ter-push c1ce508; T-007 Deploy lokal Docker + T-008 remap port :8090 SELESAI, BELUM di-commit)
+- Last updated : 2026-07-19
+- Branch aktif : main, sinkron dengan origin/main (T-007 `0f3a3c6` + T-008 `993d7b8` SUDAH di-commit & push; docs CLAUDE.md `39b83d0`)
 - Akses lokal  : stack jalan via Caddy di **:8090** (bukan 8080 — dipakai stack lain): api/app/cms/tv.localhost:8090
 - Sudah jadi   : Auth, Outlet & Platform (+status/jam/kode/QR), User & Operator, Queue Booking (+guard buka/tutup +rate-limit), Queue Call & Skip, Monitor+TV (WS realtime + TV responsif), Notifications (Web Push +rate-limit), Customer app/PWA (+daftar outlet), CI, **stack Docker penuh (Caddy + backend + 3 app + Postgres)**, DB schema
-- Sedang jalan : — (T-007 selesai: deploy lokal Docker jalan & terverifikasi)
-- Task BERIKUT : commit T-007; lalu DEPLOY ke Lightsail (Track 1b: reuse Dockerfile/compose, ganti Caddy ke domain+TLS). Tertunda by design: e2e Playwright, uji push perangkat nyata (butuh HTTPS publik), Google OAuth (Phase 2).
+- Sedang jalan : — (semua modul §9 selesai & ter-commit; stack lokal Docker terverifikasi jalan)
+- Task BERIKUT : DEPLOY ke Lightsail (Track 1b: reuse Dockerfile/compose, ganti Caddy ke domain+TLS). Tertunda by design: e2e Playwright, uji push perangkat nyata (butuh HTTPS publik), Google OAuth (Phase 2).
 - Keputusan tertunda (perlu kamu putuskan):
     1. WS auth: subscribe topic display tetap PUBLIK (data TV memang publik). Bila butuh
        privasi lebih, perketat ke JWT-per-koneksi nanti.
@@ -42,6 +42,20 @@ Folder placeholder (.gitkeep, belum diisi): platforms/  tickets/  push/  ws/
 ## Task Log
 <!-- append-only, entri terbaru di ATAS -->
 
+### [2026-07-19] T-009 — Verifikasi stack Docker lokal + commit T-007/T-008 + sinkron docs
+- Tujuan     : jalankan project di mesin lokal via Docker (permintaan user) & rapikan status.
+- Dikerjakan : buat `.env` (gitignored) dari `.env.docker.example` — `JWT_SECRET` acak baru,
+               `VAPID_*` sengaja KOSONG (Web Push auto-nonaktif; deps backend belum ada lokal
+               utk generate keypair). `docker compose up -d --build` (build 4 image: backend + 3 app).
+- Verifikasi : 6 container Up (postgres healthy); migrate up-to-date (backend auto-migrate saat start)
+               + seed OK (admin@demo.test / admin12345). Via Caddy :8090 — /health 200,
+               /auth/login mengembalikan JWT, cms 307→/login, app 200, tv 200.
+- Docs       : perbaiki bagian Perintah CLAUDE.md (single test, `tsc --noEmit`, docker :8090) `39b83d0`.
+               T-007 `0f3a3c6` & T-008 `993d7b8` ternyata SUDAH ter-commit sebelumnya → koreksi
+               Current State & status T-008 (dulu keliru tertulis "belum di-commit").
+- Status     : ✅ done — main sinkron dengan origin/main.
+- Next        : Track 1b deploy Lightsail; opsional generate VAPID utk uji Web Push end-to-end.
+
 ### [2026-06-16] T-008 — Pindah port stack lokal 8080 → 8090 (resolusi konflik port)
 - Tujuan     : jalankan stack Docker; host :8080 sudah dipakai container project lain
                (`stocksync_backend` dari art-stockmovement-prep) → qms-caddy gagal bind 8080
@@ -53,8 +67,8 @@ Folder placeholder (.gitkeep, belum diisi): platforms/  tickets/  push/  ws/
 - Akses BARU : http://api.localhost:8090 · app.localhost:8090 · cms.localhost:8090 · tv.localhost:8090
 - Verifikasi : caddy bind 0.0.0.0:8090; api /health & /outlets/public 200 (format backend benar,
                berisi data); app 200, tv 200, cms 307→/login; WS /ws upgrade 101. Semua container Up.
-- Status     : ✅ done (BELUM di-commit) — perubahan port belum di-commit bersama T-007.
-- Next        : commit T-007+T-008; Track 1b deploy Lightsail.
+- Status     : ✅ done & ter-commit (`993d7b8`, di-push ke origin/main pada T-009).
+- Next        : Track 1b deploy Lightsail.
 
 ### [2026-06-12] T-007 — Deploy lokal dengan Docker (Caddy + seluruh stack)
 - Tujuan     : kontainerisasi penuh agar bisa "deploy lokal" via Docker (fondasi sebelum Lightsail)
