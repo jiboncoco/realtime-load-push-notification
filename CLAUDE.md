@@ -51,12 +51,23 @@ bun install
 bun run migrate             # jalankan migrasi SQL terurut (runner sendiri di db/migrate.ts)
 bun run seed                # client + admin demo (admin@demo.test / admin12345)
 bun run dev                 # API http://localhost:3001 (Bun.serve: HTTP + /ws stub)
-bun test                    # unit test service layer
+bun test                    # semua unit test service layer
+bun test src/tickets/ticketops.service.test.ts   # satu file
+bun test -t "skip"          # satu test by name (pattern -t)
+bunx tsc --noEmit           # typecheck (sama seperti gate CI)
 
-# CMS  (cwd: apps/cms/)
-cp .env.example .env.local
+# Frontend apps (cwd: apps/cms | apps/customer | apps/tv)
+cp .env.example .env.local  # (cms & customer punya .env.example)
 bun install
-bun run dev                 # http://localhost:3000  (build: bun run build)
+bun run dev                 # cms :3000 · customer :3002 · tv :3003 (port di-set per script "dev")
+bun run build               # gate CI: tiap app di-tsc + next build
+
+# Full stack lokal via Docker (Caddy + backend + 3 app + Postgres)
+cp .env.docker.example .env # isi JWT_SECRET & VAPID_* (samakan dgn backend/.env)
+docker compose up -d --build
+# Akses lewat Caddy di :8090 (80/8080 sering dipakai stack lain):
+#   api.localhost:8090 · app.localhost:8090 (customer) · cms.localhost:8090 · tv.localhost:8090
+# Safari: tambah baris ke /etc/hosts (Chrome/Edge/FF auto-resolve *.localhost)
 ```
 - **Bun di-install di `~/.bun/bin`**; jika shell non-interaktif tak menemukannya: `export PATH="$HOME/.bun/bin:$PATH"`.
 - Migrasi: tambah file `backend/src/db/migrations/00N_nama.sql` (urut leksikografis); runner mencatat di tabel `schema_migrations`, idempoten.
